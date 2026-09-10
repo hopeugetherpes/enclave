@@ -48,6 +48,9 @@ export function DecryptionTab() {
         alert("Decryption failed: " + (error instanceof Error ? error.message : "Unknown error"))
       }
     } finally {
+      setPassword("")
+      setPgpKey("")
+      setPgpPassphrase("")
       setIsDecrypting(false)
     }
   }
