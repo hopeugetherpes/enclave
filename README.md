@@ -1,9 +1,3 @@
-<p align="center">
-  
-<img width="100" height="100" alt="logo 100x100" src="https://github.com/user-attachments/assets/687698da-9124-40ca-8ed9-334d3b52fec5" />
-
-
-
 <h1 align="center">🔒 Enclave</h1>
 
 # **Secure File Encryption**
@@ -26,8 +20,8 @@ Enclave provides authenticated XChaCha20-Poly1305 encryption for any file type. 
 ## 📖 Usage
 
 ### Getting Started
-1. Visit the [🔒 Enclave](https://securelock.rxutn.chatgpt.site) web application
-2. Choose your encryption method: [Password](https://github.com/hopeugetherpes/enclave/blob/main/README.md#password-requirements) or [PGP Key](https://pgp.cypherfucker.com)
+1. Visit the [🔒 Enclave](https://enclave.anatole.co) web application
+2. Choose your encryption method: [Password](https://github.com/hopeugetherpes/enclave/blob/main/README.md#password-requirements) or PGP Key
 3. Drag and drop your file or click to select
 4. Enter a strong password (minimum 16 characters with numbers, uppercase, and special characters)
 5. Click "Encrypt File" to secure your data
@@ -116,19 +110,5 @@ Enclave is configured for a zero-configuration deployment from GitHub:
 3. Click **Deploy** without changing the detected settings.
 
 The repository declares the Next.js framework, build command, static `out/` directory, and Node.js version. Vercel automatically detects pnpm from `pnpm-lock.yaml`. No environment variables, server, database, or external service are required.
-
-## 📄 License
-
-**CC0 1.0 Universal (CC0 1.0) Public Domain Dedication**
-
-This work is dedicated to the public domain. You can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission.
-
-See [LICENSE](https://github.com/hopeugetherpes/enclave/blob/main/LICENSE) for details.
-
-## 🔗 Links
-
-- **Web-app**: [🔒 Enclave](https://securelock.rxutn.chatgpt.site)
-- **Repository**: [GitHub](https://github.com/hopeugetherpes/enclave)
-- **License**: [CC0 Public Domain](https://github.com/hopeugetherpes/enclave/blob/main/LICENSE)
 
 ---
