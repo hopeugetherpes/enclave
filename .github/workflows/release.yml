@@ -1,0 +1,136 @@
+name: Release offline edition
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: enclave-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign, and publish
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+    steps:
+      - name: Check out verified source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Resolve release version
+        id: release
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid package version: $version"
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release $tag already exists; no new release is needed."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.release.outputs.exists == 'false'
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        if: steps.release.outputs.exists == 'false'
+        run: pnpm check
+
+      - name: Build web and offline editions
+        if: steps.release.outputs.exists == 'false'
+        run: pnpm build
+
+      - name: Verify offline checksum
+        if: steps.release.outputs.exists == 'false'
+        working-directory: out
+        run: sha256sum -c enclave.html.sha256
+
+      - name: Install Cosign
+        if: steps.release.outputs.exists == 'false'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign and verify checksum
+        if: steps.release.outputs.exists == 'false'
+        shell: bash
+        run: |
+          identity="https://github.com/${GITHUB_WORKFLOW_REF}"
+          cosign sign-blob \
+            --yes \
+            --bundle out/enclave.html.sha256.sigstore.json \
+            out/enclave.html.sha256
+          cosign verify-blob \
+            --bundle out/enclave.html.sha256.sigstore.json \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            out/enclave.html.sha256
+
+      - name: Publish GitHub Release
+        if: steps.release.outputs.exists == 'false'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          identity="https://github.com/${GITHUB_WORKFLOW_REF}"
+          notes_file="${RUNNER_TEMP}/enclave-release-notes.md"
+          printf '%s\n' \
+            "Portable Enclave offline edition built from commit \`${SOURCE_SHA}\`." \
+            "" \
+            "Assets:" \
+            "- \`enclave.html\`: standalone offline application" \
+            "- \`enclave.html.sha256\`: SHA-256 checksum" \
+            "- \`enclave.html.sha256.sigstore.json\`: keyless Sigstore signature bundle for the checksum" \
+            "" \
+            "Verify the signing identity and checksum:" \
+            "" \
+            "\`\`\`sh" \
+            "cosign verify-blob --bundle enclave.html.sha256.sigstore.json --certificate-identity \"${identity}\" --certificate-oidc-issuer \"https://token.actions.githubusercontent.com\" enclave.html.sha256" \
+            "sha256sum -c enclave.html.sha256" \
+            "\`\`\`" > "$notes_file"
+
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_SHA" \
+            --title "Enclave $RELEASE_TAG" \
+            --notes-file "$notes_file" \
+            out/enclave.html \
+            out/enclave.html.sha256 \
+            out/enclave.html.sha256.sigstore.json

@@ -42,6 +42,7 @@ export function EncryptionTab() {
       console.error("[Enclave] Encryption error:", error)
       alert("Encryption failed: " + (error instanceof Error ? error.message : "Unknown error"))
     } finally {
+      setPassword("")
       setIsEncrypting(false)
     }
   }

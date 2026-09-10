@@ -16,6 +16,10 @@ export function PGPKeyInput({ value, onChange, disabled, placeholder }: PGPKeyIn
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       placeholder={placeholder}
+      autoCapitalize="none"
+      autoComplete="off"
+      autoCorrect="off"
+      spellCheck={false}
       className="font-mono text-sm min-h-[200px]"
     />
   )
