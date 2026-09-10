@@ -8,7 +8,7 @@ Security fixes are applied to the latest version on the `main` branch and to the
 
 Please do not open a public issue for a suspected vulnerability.
 
-Send the report privately using the contact and PGP information published at <https://pgp.anatole.co>. Include:
+Send the report privately using the contact and informations published at <https://anatole.co>. Include:
 
 - a clear description of the issue and its impact;
 - reproducible steps or a minimal proof of concept;
