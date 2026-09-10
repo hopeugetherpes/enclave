@@ -13,7 +13,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       <a
-        href="https://sfrwbkt.anatole.co"
+        href="https://github.com/hopeugetherpes/enclave/blob/main/public/safari_libsodium_crypto.md"
         target="_blank"
         rel="noopener noreferrer"
         className="block w-full bg-neutral-600 px-4 py-2 text-center text-sm font-medium leading-5 text-white transition-colors hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
@@ -122,7 +122,7 @@ export default function HomePage() {
             </p>
             <p className="mt-1 text-xs" data-offline-download>
               <a
-                href="/enclave.html"
+                href="https://enclave.anatole.co/enclave.html"
                 download="Enclave.html"
                 className="hover:opacity-80 transition-opacity underline underline-offset-2"
                 style={{ color: "#36b3fd" }}
