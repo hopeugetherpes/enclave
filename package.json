@@ -19,7 +19,7 @@
     "clsx": "^2.1.1",
     "libsodium-wrappers-sumo": "0.8.4",
     "lucide-react": "^0.454.0",
-    "next": "16.0.10",
+    "next": "16.3.4",
     "next-themes": "latest",
     "openpgp": "6.3.1",
     "react": "19.2.0",
