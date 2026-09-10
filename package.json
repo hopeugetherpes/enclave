@@ -22,7 +22,7 @@
     "next": "16.0.10",
     "next-themes": "latest",
     "openpgp": "6.3.1",
-    "react": "19.2.0",
+    "react": "19.2.8",
     "react-dom": "19.2.0",
     "tailwind-merge": "^2.5.5"
   },
