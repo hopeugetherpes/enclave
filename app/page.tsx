@@ -31,7 +31,7 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <a
-              href="https://pgp.anatole.co"
+              href="https://pgp-offline.anatole.co"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-colors"
