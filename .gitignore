@@ -9,3 +9,4 @@ out/
 *.key
 .DS_Store
 *.log
+*.tsbuildinfo

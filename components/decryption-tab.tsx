@@ -8,6 +8,7 @@ import { FeaturesPanel } from "@/components/features-panel"
 import { Button } from "@/components/ui/button"
 import { Key, Download, AlertCircle } from "lucide-react"
 import { decryptFile } from "@/lib/crypto"
+import { downloadBlob } from "@/lib/download"
 
 export function DecryptionTab() {
   const [file, setFile] = useState<File | null>(null)
@@ -57,15 +58,7 @@ export function DecryptionTab() {
 
   const handleDownload = () => {
     if (!decryptedBlob) return
-
-    const url = URL.createObjectURL(decryptedBlob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = decryptedFileName || "decrypted-file"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    downloadBlob(decryptedBlob, decryptedFileName || "decrypted-file")
   }
 
   const handleReset = () => {
@@ -169,6 +162,7 @@ export function DecryptionTab() {
               onChange={setPassword}
               disabled={isDecrypting}
               placeholder="Enter your password"
+              showGuidance={false}
             />
           ) : (
             <div className="space-y-3">
@@ -177,6 +171,7 @@ export function DecryptionTab() {
                 onChange={setPgpKey}
                 disabled={isDecrypting}
                 placeholder="Paste your PGP private key here"
+                keyKind="private"
               />
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">
@@ -187,6 +182,7 @@ export function DecryptionTab() {
                   onChange={setPgpPassphrase}
                   disabled={isDecrypting}
                   placeholder="Enter your private key passphrase (leave empty if not encrypted)"
+                  showGuidance={false}
                 />
               </div>
             </div>
@@ -227,6 +223,10 @@ export function DecryptionTab() {
             <div>
               <p className="font-semibold text-lg mb-1">✓ Decryption Complete</p>
               <p className="text-sm text-muted-foreground">Your file has been decrypted successfully</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                Decryption verifies integrity, not that the file is safe to open or who sent it. Treat unexpected
+                files as untrusted.
+              </p>
             </div>
           </div>
           <div className="flex gap-3">

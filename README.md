@@ -6,14 +6,14 @@ Enclave is a privacy-focused lightweight encryption web-app that allows you to e
 
 ## Purpose
 
-Enclave provides authenticated XChaCha20-Poly1305 encryption for any file type. Files and passwords remain inside the browser throughout encryption and decryption.
+Enclave provides authenticated XChaCha20-Poly1305 password encryption and OpenPGP public-key encryption for any file type. Files, passwords, and keys remain inside the browser throughout encryption and decryption.
 
 **Key Features:**
 - 🔐 **XChaCha20-Poly1305 Encryption** - Implemented with [Libsodium](https://github.com/jedisct1/libsodium)
 - 📁 **Universal File Support** - Encrypt any file type (documents, images, videos, etc.)
 - 📦 **Chunked Processing** - No application-imposed limit; practical limits depend on the browser, memory, and encryption method
-- 🌐 **Local Processing** - Zero server communication, complete privacy
-- 🎯 **Zero Knowledge** - We never see your files or passwords
+- 🌐 **Local Processing** - No file, password, or key upload and no runtime API connection
+- 🎯 **No Application Data Collection** - No analytics, account, database, or telemetry in the application
 - 📱 **Cross-Platform** - Works on any device with a modern browser
 - 🆓 **[Open Source](https://github.com/hopeugetherpes/enclave)** - Fully auditable code under [CC0](https://github.com/hopeugetherpes/enclave/blob/main/LICENSE) license
 
@@ -46,25 +46,27 @@ For maximum security, passwords must include:
 
 ### File Signature
 
-Files encrypted with Enclave are identifiable by looking at the file signature that is used by the app to verify the content of a file. Such signatures are also known as magic numbers or magic bytes. These bytes are authenticated and cannot be changed.
+Password-encrypted files use a recognizable Enclave magic number so the app can select the current format. Changing the marker makes the file invalid, but the marker itself is not secret. OpenPGP output is identifiable as OpenPGP ciphertext.
 
 ### Safari and Mobile Browsers
 
-Safari and Mobile browsers are limited to a single file with maximum size of 1GB due to some issues related to service-workers. In addition, this limitation also applies when the app fails to register the service-worker (e.g Firefox Private Browsing).
+Safari, browsers on iPhone, and memory-constrained mobile browsers may fail on large files because of browser and WebAssembly memory limits. There is no reliable universal 1 GB threshold. Enclave does not use a service worker.
 
 - **Password Recovery**: If you forget your password, your files cannot be recovered. There is no "forgot password" option by design.
-- **Browser Compatibility**: Requires a modern browser support (Chrome 37+, Firefox 34+, ~~Safari 7+~~, Edge 12+) **[We strongly advise against using Safari or any WebKit browser](https://github.com/hopeugetherpes/enclave/blob/main/public/safari_libsodium_crypto.md)**
-- **Memory Usage**: Very large files may consume significant browser memory during processing
-- **File Associations**: Encrypted files lose their original file associations and must be manually renamed after decryption
+- **Browser Compatibility**: Use a currently supported desktop browser. **[Safari and WebKit have additional limitations](https://github.com/hopeugetherpes/enclave/blob/main/public/safari_libsodium_crypto.md).**
+- **Memory Usage**: Password mode processes file content in chunks. OpenPGP mode currently loads the complete file and may require several times its size in free memory.
+- **File Safety**: Authenticated decryption does not scan recovered content for malware and does not prove who sent it.
 
 ## 🛡️ Security Architecture
 
 Enclave implements industry-standard cryptographic practices:
 
 - **[XChaCha20-Poly1305](https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/xchacha20-poly1305_construction)** - authenticated symmetric encryption using Libsodium secret streams
-- **[Argon2id](https://github.com/p-h-c/phc-winner-argon2)** - for password-based key derivation: To this day the best password hashing algorithm
-- **[X25519](https://cr.yp.to/ecdh.html)** - for key exchange
-- **Implementation**: [Libsodium library](https://github.com/jedisct1/libsodium) API
+- **[Argon2id](https://github.com/p-h-c/phc-winner-argon2)** - password-based key derivation using Libsodium's moderate limits for newly encrypted files
+- **OpenPGP.js** - recipient-key encryption and decryption; the exact public-key algorithm comes from the supplied PGP key
+- **Implementation**: [Libsodium](https://github.com/jedisct1/libsodium) for password mode and OpenPGP.js for PGP mode
+
+Read [PRIVACY.md](PRIVACY.md) for the complete threat model, host metadata, ciphertext leakage, browser-memory caveats, and offline verification guidance. The dated findings and remediations from the repository review are recorded in [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
 
 
 ## Development
@@ -91,7 +93,7 @@ The production build is a static export written to `out/`. It also creates a por
 - `out/enclave.html` — the complete application in one self-contained file
 - `out/enclave.html.sha256` — a SHA-256 checksum for verifying that file
 
-The offline edition embeds its required CSS, JavaScript, Libsodium, and OpenPGP code. Its content-security policy blocks network connections, so it can be opened directly from disk without an internet connection. The **Save offline .html** link in the website footer downloads this edition.
+The offline edition embeds its required CSS, JavaScript, Libsodium, and OpenPGP code. Its content-security policy blocks network connections, so it can be opened directly from disk without an internet connection. The hosted HTML receives a separate hash-based policy, while Vercel adds defense-in-depth security headers. The **Save offline .html** link in the website footer downloads the portable edition.
 
 To regenerate only the portable file after `pnpm build:web`, run:
 

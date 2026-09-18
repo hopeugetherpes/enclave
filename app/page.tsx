@@ -18,7 +18,8 @@ export default function HomePage() {
         rel="noopener noreferrer"
         className="block w-full bg-neutral-600 px-4 py-2 text-center text-sm font-medium leading-5 text-white transition-colors hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
       >
-        Safari and browsers used on iPhone have a limited experience (single file, 1 GB) due to Apple&apos;s restrictions.
+        Safari and browsers on iPhone may fail on large files because of WebKit memory limits. Use the signed offline
+        edition in a current desktop browser for sensitive or large files.
       </a>
 
       {/* Header */}
@@ -68,8 +69,8 @@ export default function HomePage() {
           <div className="text-sm">
             <p className="font-medium text-foreground mb-1">100% Client-Side Processing</p>
             <p className="text-muted-foreground">
-              Encryption and decryption happen in your browser with Libsodium. Files and passwords are never uploaded,
-              stored, or transmitted to a server.
+              Password encryption uses Libsodium and PGP mode uses OpenPGP.js. Files, passwords, and keys are processed
+              locally and are never uploaded by Enclave.
             </p>
           </div>
         </div>
@@ -129,6 +130,17 @@ export default function HomePage() {
                 aria-label="Download Enclave as a standalone offline HTML file"
               >
                 Save offline .html
+              </a>
+            </p>
+            <p className="mt-1 text-xs">
+              <a
+                href="https://github.com/hopeugetherpes/enclave/blob/main/PRIVACY.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:opacity-80 transition-opacity underline underline-offset-2"
+                style={{ color: "#36b3fd" }}
+              >
+                Privacy &amp; threat model
               </a>
             </p>
           </div>
