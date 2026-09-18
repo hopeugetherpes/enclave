@@ -1,12 +1,16 @@
 import _sodium from "libsodium-wrappers-sumo"
 import * as openpgp from "openpgp"
+import { sanitizeDownloadName } from "./download.ts"
 
 const STREAM_CHUNK_SIZE = 4 * 1024 * 1024
 const LEGACY_CHUNK_SIZE = 64 * 1024 * 1024
 const MAGIC = new Uint8Array([0x53, 0x4c, 0x4f, 0x43, 0x4b, 0x03, 0x0d, 0x0a])
 const PASSWORD_MODE = 1
 const SALT_BYTES = 16
-const METADATA_LIMIT = 1024 * 1024
+const METADATA_LIMIT = 16 * 1024
+const FILE_NAME_LIMIT = 1024
+const MIME_TYPE_LIMIT = 255
+export const MAX_PGP_KEY_LENGTH = 5 * 1024 * 1024
 
 let sodiumInstance: typeof _sodium | null = null
 
@@ -62,14 +66,20 @@ function parseMetadata(bytes: Uint8Array) {
     }
     if (
       typeof metadata.name !== "string" ||
+      metadata.name.length === 0 ||
+      metadata.name.length > FILE_NAME_LIMIT ||
       typeof metadata.type !== "string" ||
+      metadata.type.length > MIME_TYPE_LIMIT ||
       typeof metadata.size !== "number" ||
       !Number.isSafeInteger(metadata.size) ||
       metadata.size < 0
     ) {
       throw new Error("INVALID_FILE_FORMAT")
     }
-    return { name: metadata.name, type: metadata.type, size: metadata.size }
+    return {
+      name: sanitizeDownloadName(metadata.name, "decrypted-file"),
+      size: metadata.size,
+    }
   } catch {
     throw new Error("INVALID_FILE_FORMAT")
   }
@@ -105,8 +115,8 @@ async function encryptFileWithPassword(
 ) {
   const sodium = await initSodium()
   const salt = sodium.randombytes_buf(SALT_BYTES)
-  const opsLimit = sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE
-  const memLimit = sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE
+  const opsLimit = sodium.crypto_pwhash_OPSLIMIT_MODERATE
+  const memLimit = sodium.crypto_pwhash_MEMLIMIT_MODERATE
   const key = sodium.crypto_pwhash(
     sodium.crypto_secretstream_xchacha20poly1305_KEYBYTES,
     password,
@@ -127,6 +137,7 @@ async function encryptFileWithPassword(
       null,
       sodium.crypto_secretstream_xchacha20poly1305_TAG_MESSAGE,
     )
+    sodium.memzero(metadata)
 
     const prefix = concatBytes([
       MAGIC,
@@ -162,6 +173,7 @@ async function encryptFileWithPassword(
         output.push(
           asBlobPart(sodium.crypto_secretstream_xchacha20poly1305_push(state, chunk, null, tag)),
         )
+        sodium.memzero(chunk)
         offset = end
         onProgress?.(Math.round((offset / file.size) * 100))
       }
@@ -241,6 +253,7 @@ async function decryptCurrentPasswordFormat(
     memLimit,
     sodium.crypto_pwhash_ALG_ARGON2ID13,
   )
+  const output: Uint8Array<ArrayBuffer>[] = []
 
   try {
     const state = sodium.crypto_secretstream_xchacha20poly1305_init_pull(streamHeader, key)
@@ -249,9 +262,13 @@ async function decryptCurrentPasswordFormat(
     if (!metadataResult || metadataResult.tag !== sodium.crypto_secretstream_xchacha20poly1305_TAG_MESSAGE) {
       throw new Error("Decryption failed. Please check your password.")
     }
-    const metadata = parseMetadata(metadataResult.message)
+    let metadata: ReturnType<typeof parseMetadata>
+    try {
+      metadata = parseMetadata(metadataResult.message)
+    } finally {
+      sodium.memzero(metadataResult.message)
+    }
 
-    const output: BlobPart[] = []
     let encryptedOffset = fixedHeaderSize + encryptedMetadataLength
     let decryptedSize = 0
     let finalSeen = false
@@ -281,13 +298,14 @@ async function decryptCurrentPasswordFormat(
 
     onProgress?.(100)
     return {
-      blob: new Blob(output, { type: metadata.type || "application/octet-stream" }),
+      blob: new Blob(output, { type: "application/octet-stream" }),
       fileName: metadata.name,
     }
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_FILE_FORMAT") throw error
     throw new Error("Decryption failed. Please check your password or file integrity.")
   } finally {
+    for (const part of output) sodium.memzero(part)
     sodium.memzero(key)
   }
 }
@@ -306,7 +324,13 @@ async function decryptLegacyPasswordFormat(
     throw new Error("INVALID_FILE_FORMAT")
   }
 
-  const metadata = parseMetadata(await readSlice(file, 4, metadataLength))
+  const metadataBytes = await readSlice(file, 4, metadataLength)
+  let metadata: ReturnType<typeof parseMetadata>
+  try {
+    metadata = parseMetadata(metadataBytes)
+  } finally {
+    sodium.memzero(metadataBytes)
+  }
   let position = 4 + metadataLength
   const salt = await readSlice(file, position, SALT_BYTES)
   position += SALT_BYTES
@@ -320,10 +344,10 @@ async function decryptLegacyPasswordFormat(
     sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
     sodium.crypto_pwhash_ALG_ARGON2ID13,
   )
+  const output: Uint8Array<ArrayBuffer>[] = []
 
   try {
     const state = sodium.crypto_secretstream_xchacha20poly1305_init_pull(streamHeader, key)
-    const output: BlobPart[] = []
     let decryptedSize = 0
     let finalSeen = false
 
@@ -348,13 +372,14 @@ async function decryptLegacyPasswordFormat(
     }
     onProgress?.(100)
     return {
-      blob: new Blob(output, { type: metadata.type || "application/octet-stream" }),
+      blob: new Blob(output, { type: "application/octet-stream" }),
       fileName: metadata.name,
     }
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_FILE_FORMAT") throw error
     throw new Error("Decryption failed. Please check your password.")
   } finally {
+    for (const part of output) sodium.memzero(part)
     sodium.memzero(key)
   }
 }
@@ -364,20 +389,38 @@ async function encryptFileWithPGP(
   publicKeyArmored: string,
   onProgress?: (progress: number) => void,
 ) {
+  if (publicKeyArmored.length > MAX_PGP_KEY_LENGTH) throw new Error("The PGP public key is too large.")
   const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored })
+  await publicKey.verifyPrimaryKey()
+  if (await publicKey.isRevoked()) {
+    throw new Error("The PGP public key is revoked and must not be used.")
+  }
+  const expirationTime = await publicKey.getExpirationTime()
+  if (expirationTime instanceof Date && expirationTime.getTime() <= Date.now()) {
+    throw new Error("The PGP public key is expired and must not be used.")
+  }
+  await publicKey.getEncryptionKey()
+
   const metadata = new TextEncoder().encode(
     JSON.stringify({ name: file.name, type: file.type, size: file.size }),
   )
   const fileData = new Uint8Array(await file.arrayBuffer())
   const combined = concatBytes([uint32(metadata.length), metadata, fileData])
-  onProgress?.(50)
-  const encrypted = await openpgp.encrypt({
-    message: await openpgp.createMessage({ binary: combined }),
-    encryptionKeys: publicKey,
-    format: "binary",
-  })
-  onProgress?.(100)
-  return new Blob([asBlobPart(encrypted as Uint8Array)], { type: "application/octet-stream" })
+
+  try {
+    onProgress?.(50)
+    const encrypted = await openpgp.encrypt({
+      message: await openpgp.createMessage({ binary: combined }),
+      encryptionKeys: publicKey,
+      format: "binary",
+    })
+    onProgress?.(100)
+    return new Blob([asBlobPart(encrypted as Uint8Array)], { type: "application/octet-stream" })
+  } finally {
+    fileData.fill(0)
+    metadata.fill(0)
+    combined.fill(0)
+  }
 }
 
 async function decryptFileWithPGP(
@@ -386,6 +429,7 @@ async function decryptFileWithPGP(
   onProgress?: (progress: number) => void,
   passphrase?: string,
 ) {
+  if (privateKeyArmored.length > MAX_PGP_KEY_LENGTH) throw new Error("The PGP private key is too large.")
   let privateKey = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored })
   if (!privateKey.isDecrypted()) {
     try {
@@ -401,17 +445,45 @@ async function decryptFileWithPGP(
   const { data } = await openpgp.decrypt({ message, decryptionKeys: privateKey, format: "binary" })
   onProgress?.(80)
   const decrypted = data as Uint8Array
-  if (decrypted.length < 4) throw new Error("INVALID_FILE_FORMAT")
-  const metadataLength = readUint32(decrypted, 0)
-  if (metadataLength < 10 || metadataLength > METADATA_LIMIT || 4 + metadataLength > decrypted.length) {
-    throw new Error("INVALID_FILE_FORMAT")
+  try {
+    if (decrypted.length < 4) throw new Error("INVALID_FILE_FORMAT")
+    const metadataLength = readUint32(decrypted, 0)
+    if (metadataLength < 10 || metadataLength > METADATA_LIMIT || 4 + metadataLength > decrypted.length) {
+      throw new Error("INVALID_FILE_FORMAT")
+    }
+    const metadata = parseMetadata(decrypted.slice(4, 4 + metadataLength))
+    const fileData = decrypted.slice(4 + metadataLength)
+    if (fileData.length !== metadata.size) throw new Error("INVALID_FILE_FORMAT")
+    onProgress?.(100)
+    return {
+      blob: new Blob([fileData], { type: "application/octet-stream" }),
+      fileName: metadata.name,
+    }
+  } finally {
+    decrypted.fill(0)
   }
-  const metadata = parseMetadata(decrypted.slice(4, 4 + metadataLength))
-  const fileData = decrypted.slice(4 + metadataLength)
-  if (fileData.length !== metadata.size) throw new Error("INVALID_FILE_FORMAT")
-  onProgress?.(100)
+}
+
+export async function inspectPGPKey(armoredKey: string, kind: "public" | "private") {
+  if (armoredKey.length > MAX_PGP_KEY_LENGTH) throw new Error("The PGP key is too large.")
+  const key = kind === "public"
+    ? await openpgp.readKey({ armoredKey })
+    : await openpgp.readPrivateKey({ armoredKey })
+
+  if (kind === "public") {
+    await key.verifyPrimaryKey()
+    if (await key.isRevoked()) throw new Error("The PGP public key is revoked.")
+    const expirationTime = await key.getExpirationTime()
+    if (expirationTime instanceof Date && expirationTime.getTime() <= Date.now()) {
+      throw new Error("The PGP public key is expired.")
+    }
+    await key.getEncryptionKey()
+  }
+
+  const fingerprint = key.getFingerprint().toUpperCase().match(/.{1,4}/g)?.join(" ") ?? ""
+
   return {
-    blob: new Blob([fileData], { type: metadata.type || "application/octet-stream" }),
-    fileName: metadata.name,
+    fingerprint,
+    identity: key.getUserIDs()[0]?.slice(0, 200) ?? "No identity included",
   }
 }

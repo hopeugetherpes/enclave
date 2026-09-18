@@ -8,6 +8,7 @@ import { FeaturesPanel } from "@/components/features-panel"
 import { Button } from "@/components/ui/button"
 import { Lock, Download } from "lucide-react"
 import { encryptFile } from "@/lib/crypto"
+import { downloadBlob, sanitizeDownloadName } from "@/lib/download"
 
 export function EncryptionTab() {
   const [file, setFile] = useState<File | null>(null)
@@ -49,15 +50,8 @@ export function EncryptionTab() {
 
   const handleDownload = () => {
     if (!encryptedBlob || !file) return
-
-    const url = URL.createObjectURL(encryptedBlob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${file.name}.encrypted`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    const originalName = sanitizeDownloadName(file.name, "file", 220)
+    downloadBlob(encryptedBlob, `${originalName}.encrypted`)
   }
 
   const handleReset = () => {
@@ -149,6 +143,7 @@ export function EncryptionTab() {
               onChange={setPgpKey}
               disabled={isEncrypting}
               placeholder="Paste your PGP public key here"
+              keyKind="public"
             />
           )}
         </div>

@@ -75,9 +75,10 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
               <li>XChaCha20-Poly1305 authenticated encryption algorithm</li>
               <li>Argon2id password hashing for secure key derivation</li>
+              <li>Moderate Argon2id parameters for newly encrypted password files</li>
               <li>Libsodium for password encryption, random values, and key derivation</li>
               <li>OpenPGP.js for PGP encryption and decryption</li>
-              <li>Chunked file processing for large files with streaming encryption</li>
+              <li>Chunked processing in password mode; PGP mode is limited by available memory</li>
             </ul>
           </div>
 

@@ -10,11 +10,13 @@ interface PasswordInputProps {
   onChange: (value: string) => void
   disabled?: boolean
   placeholder?: string
+  showGuidance?: boolean
 }
 
 export function isStrongPassword(password: string) {
   return (
     password.length >= 16 &&
+    password.length <= 4096 &&
     /[A-Z]/.test(password) &&
     /[0-9]/.test(password) &&
     /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
@@ -39,7 +41,13 @@ function getPasswordStrength(password: string): "weak" | "medium" | "strong" | n
   return "medium"
 }
 
-export function PasswordInput({ value, onChange, disabled, placeholder }: PasswordInputProps) {
+export function PasswordInput({
+  value,
+  onChange,
+  disabled,
+  placeholder,
+  showGuidance = true,
+}: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false)
 
   const strength = getPasswordStrength(value)
@@ -61,8 +69,9 @@ export function PasswordInput({ value, onChange, disabled, placeholder }: Passwo
         disabled={disabled}
         placeholder={placeholder}
         minLength={16}
+        maxLength={4096}
         autoComplete="new-password"
-        aria-describedby="password-guidance"
+        aria-describedby={showGuidance ? "password-guidance" : undefined}
         className={`pr-10 ${getBackgroundColor()}`}
       />
       <Button
@@ -80,9 +89,12 @@ export function PasswordInput({ value, onChange, disabled, placeholder }: Passwo
           <Eye className="w-4 h-4 text-muted-foreground" />
         )}
       </Button>
-      <p id="password-guidance" className="mt-2 text-xs text-muted-foreground">
-        Use at least 16 characters, including an uppercase letter, a number, and a symbol.
-      </p>
+      {showGuidance && (
+        <p id="password-guidance" className="mt-2 text-xs text-muted-foreground">
+          Use at least 16 characters, including an uppercase letter, a number, and a symbol. A password manager is
+          recommended.
+        </p>
+      )}
     </div>
   )
 }
