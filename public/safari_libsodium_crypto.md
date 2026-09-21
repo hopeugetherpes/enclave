@@ -297,7 +297,7 @@ This amplifies the impact:
 * iOS WebKit enforces additional constraints (lower memory, forced tab suspension).
 * Failure modes often occur silently, leading to **corrupted ciphertext and unrecoverable data.**
 
-</u>**Taken together, these issues make Safari an unreliable and high-risk environment for client-side cryptographic workloads involving large files or memory-hard algorithms. **</u>
+**Taken together, these issues make Safari an unreliable and high-risk environment for client-side cryptographic workloads involving large files or memory-hard algorithms.**
 
 
 ---
