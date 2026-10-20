@@ -93,6 +93,10 @@ The production build is a static export written to `out/`. It also creates a por
 - `out/enclave.html` — the complete application in one self-contained file
 - `out/enclave.html.sha256` — a SHA-256 checksum for verifying that file
 
+The build also generates `out/_headers` from `vercel.json` for compatible Cloudflare/Netlify-style static hosts. CI checks that the exported security headers match the Vercel configuration, including anti-framing protections. Hosts that serve responses through custom Worker code must apply the same headers in that response handler; the final public responses still need verification.
+
+GitHub and ChatGPT Sites have separate source and publication histories. Updating this repository alone does not publish a new version to an existing ChatGPT Site. Publish the matching rebuilt export there as well.
+
 The offline edition embeds its required CSS, JavaScript, Libsodium, and OpenPGP code. Its content-security policy blocks network connections, so it can be opened directly from disk without an internet connection. The hosted HTML receives a separate hash-based policy, while Vercel adds defense-in-depth security headers. The **Save offline .html** link in the website footer downloads the portable edition.
 
 To regenerate only the portable file after `pnpm build:web`, run:

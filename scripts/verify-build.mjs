@@ -52,4 +52,28 @@ for (const requiredHeader of [
   if (!header(requiredHeader)) throw new Error(`Missing deployment header: ${requiredHeader}`)
 }
 
-console.log("Verified hosted CSP hashes, deployment headers, and offline checksum")
+// Check the actual export as well as the Vercel configuration. A config-only
+// check would pass even when a non-Vercel publication lost all HTTP headers.
+const staticHeaderLines = (await readFile(join(outputDirectory, "_headers"), "utf8"))
+  .split(/\r?\n/)
+  .filter((line) => line.trim() && !line.trimStart().startsWith("#"))
+if (staticHeaderLines.shift() !== "/*") throw new Error("Static security headers are not site-wide")
+const exportedHeaders = new Map()
+for (const line of staticHeaderLines) {
+  const match = line.match(/^  ([A-Za-z][A-Za-z0-9-]*): (.+)$/)
+  if (!match || exportedHeaders.has(match[1].toLowerCase())) {
+    throw new Error("Invalid or duplicate exported security header")
+  }
+  exportedHeaders.set(match[1].toLowerCase(), match[2])
+}
+for (const { key, value } of headers) {
+  if (exportedHeaders.get(key.toLowerCase()) !== value) {
+    throw new Error(`Static export does not preserve the deployment header: ${key}`)
+  }
+}
+if (exportedHeaders.size !== headers.length) throw new Error("Unexpected exported security headers")
+if (header("X-Frame-Options") !== "DENY" || !header("Content-Security-Policy")?.includes("frame-ancestors 'none'")) {
+  throw new Error("The deployment does not prevent framing")
+}
+
+console.log("Verified hosted CSP hashes, Vercel and static headers, anti-framing, and offline checksum")
