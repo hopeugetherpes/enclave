@@ -7,6 +7,22 @@ dependencies, GitHub Actions, release signing, repository rules, and the committ
 It is an engineering security review, not a formal independent cryptographic audit or a guarantee that no vulnerability
 exists.
 
+## Deployment follow-up — 2026-10-20
+
+A Rustine quick scan of `https://enclave.anatole.co` reported nine findings: an announced Next.js 16.0.10 with 38 package advisories; missing anti-framing, HSTS, nosniff, CSP, referrer and permissions headers; no privacy-policy link; and missing DMARC.
+
+The live page was checked against repository commit `e9468a2cf0c29d13875dd292f1bfc9b1401037f8`. It still displayed older privacy and Safari text and no CSP meta element, while the repository already pinned Next.js 16.4.0 and contained hosted CSP hardening, HTTP security headers and a privacy link. ChatGPT Sites identified its latest saved publication as version 11, with a separate source commit `a47ac5a161a25e81a24c52025a77f4e0ee287f35`. This confirms a source/publication mismatch; a repository update is not evidence that the public deployment has been fixed.
+
+This change generates `out/_headers` from the existing Vercel header configuration, validates header syntax and host limits, and makes build verification compare every exported header with that configuration. It also checks both anti-framing controls. This covers static hosts that honor the standard Cloudflare/Netlify header file. A custom Worker response path may need equivalent response-handler changes, and live header verification remains required.
+
+The version-based advisory count is not a count of proven attacks against Enclave. The project uses `output: "export"`; features such as a running Next.js server, server-side image optimization and middleware are absent from that export. For example, [GHSA-p293-qw3h-jr36](https://github.com/advisories/GHSA-p293-qw3h-jr36) requires a Windows-hosted server. This does not remove the need to rebuild from maintained dependencies or assess other advisories individually.
+
+DMARC is a separate DNS/mail control, not a JavaScript or encryption fix. Rustine reported no DMARC record at either `_dmarc.enclave.anatole.co` or `_dmarc.anatole.co`. Mail senders and SPF/DKIM alignment must be inventoried before choosing an enforcement policy; this change does not alter DNS.
+
+Compilation and direct Sites source access were unavailable in the initiating session. This change does not claim a successful public deployment or a clean rescan. The existing GitHub CI runs the dependency audit, type checking, cryptographic tests, production/offline builds and export verification on the pull request.
+
+See [Cloudflare static asset header documentation](https://developers.cloudflare.com/workers/static-assets/headers/) for header-file behavior and the custom-Worker limitation.
+
 ## Remediated findings
 
 | Severity | Finding | Remediation |
